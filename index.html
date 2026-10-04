@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini CPU Simulator | COA Project</title>
+<style>
+*{box-sizing:border-box} body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:#0f172a;color:#e5e7eb}
+header{padding:22px 34px;background:#111827;border-bottom:1px solid #263244;display:flex;justify-content:space-between;align-items:center}
+h1{margin:0;font-size:25px} .sub{color:#94a3b8;margin-top:5px;font-size:13px}
+.badge{background:#1e293b;border:1px solid #334155;padding:8px 13px;border-radius:20px;font-size:12px;color:#93c5fd}
+.wrap{padding:22px;max-width:1400px;margin:auto}.grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}
+.card{background:#111827;border:1px solid #263244;border-radius:14px;padding:18px;box-shadow:0 10px 25px #0002}
+.card h2{font-size:15px;margin:0 0 14px;color:#cbd5e1}
+textarea{width:100%;height:210px;background:#020617;color:#dbeafe;border:1px solid #334155;border-radius:10px;padding:14px;font:14px Consolas,monospace;resize:vertical;outline:none}
+button{border:0;border-radius:8px;padding:10px 15px;margin:8px 5px 0 0;font-weight:600;cursor:pointer;background:#2563eb;color:white}
+button.secondary{background:#334155} button.green{background:#059669} button.red{background:#dc2626}
+button:hover{filter:brightness(1.12)} .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:#0b1220;border:1px solid #263244;border-radius:10px;padding:12px}.stat small{color:#64748b}.stat b{display:block;font-size:21px;margin-top:5px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px;border-bottom:1px solid #253044;text-align:left}th{color:#94a3b8}
+.active{background:#172554!important;border-left:3px solid #60a5fa}.value{color:#86efac;font-family:Consolas,monospace}
+.log{height:145px;overflow:auto;background:#020617;border-radius:9px;padding:10px;font:12px Consolas,monospace;color:#94a3b8}
+.arch{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:center}
+.arch div{padding:15px;text-align:center;border:1px solid #334155;background:#0b1220;border-radius:10px}.arrow{text-align:center;color:#60a5fa;font-size:20px}
+footer{text-align:center;color:#64748b;font-size:12px;padding:25px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header><div><h1>Mini CPU Simulator</h1><div class="sub">Computer Organisation & Architecture • 8-bit educational processor</div></div><div class="badge">COA PROJECT</div></header>
+<div class="wrap">
+<div class="grid">
+<section class="card">
+<h2>1. Instruction Program</h2>
+<textarea id="program">LOAD R1, 10
+LOAD R2, 20
+ADD R1, R2
+STORE R1, 100
+LOAD R3, 5
+SUB R1, R3
+STORE R1, 101
+HALT</textarea>
+<div>
+<button onclick="loadProgram()">Load Program</button>
+<button class="green" onclick="runProgram()">▶ Run</button>
+<button onclick="step()">⏭ Step</button>
+<button class="secondary" onclick="resetCPU()">↻ Reset</button>
+</div>
+<p class="sub">Supported instructions: LOAD, STORE, ADD, SUB, MOV, INC, DEC, JMP, JZ, HALT</p>
+</section>
+
+<section class="card">
+<h2>CPU Status</h2>
+<div class="stats">
+<div class="stat"><small>Program Counter</small><b id="pc">0</b></div>
+<div class="stat"><small>Instruction Register</small><b id="ir">—</b></div>
+<div class="stat"><small>Accumulator</small><b id="acc">0</b></div>
+<div class="stat"><small>Clock Cycles</small><b id="cycles">0</b></div>
+</div>
+<br>
+<div class="arch">
+<div>Program Memory<br><span class="value">Instructions</span></div><div>⇄</div><div>Control Unit<br><span class="value">Fetch • Decode • Execute</span></div>
+<div>Registers<br><span class="value">R0–R3</span></div><div>⇄</div><div>ALU<br><span class="value">ADD / SUB</span></div>
+</div>
+</section>
+</div>
+
+<div class="grid" style="margin-top:18px">
+<section class="card"><h2>Registers</h2>
+<table><thead><tr><th>Register</th><th>Value (Decimal)</th><th>8-bit Binary</th></tr></thead><tbody id="regs"></tbody></table>
+</section>
+<section class="card"><h2>Memory — selected addresses</h2>
+<table><thead><tr><th>Address</th><th>Value</th><th>Binary</th></tr></thead><tbody id="memory"></tbody></table>
+</section>
+</div>
+
+<div class="grid" style="margin-top:18px">
+<section class="card"><h2>Instruction Execution</h2>
+<table><thead><tr><th>Address</th><th>Instruction</th><th>Status</th></tr></thead><tbody id="instructions"></tbody></table>
+</section>
+<section class="card"><h2>Execution Log</h2><div class="log" id="log">System ready. Load the program to begin.</div></section>
+</div>
+</div>
+<footer>Mini CPU Simulator • Educational 8-bit processor • Designed for Computer Organisation & Architecture</footer>
+
+<script>
+let cpu={pc:0,ir:"—",acc:0,cycles:0,regs:[0,0,0,0],mem:{},program:[],halted:false};
+
+function bin(v){return (v&255).toString(2).padStart(8,'0')}
+function log(s){let l=document.getElementById('log');l.innerHTML += `<div>› ${s}</div>`;l.scrollTop=l.scrollHeight}
+function parseProgram(){
+ return document.getElementById('program').value.split('\n').map(x=>x.split(';')[0].trim()).filter(x=>x.length)
+}
+function loadProgram(){resetCPU(false);cpu.program=parseProgram();render();log(`Loaded ${cpu.program.length} instructions.`)}
+function resetCPU(clearLog=true){
+ cpu={pc:0,ir:"—",acc:0,cycles:0,regs:[0,0,0,0],mem:{},program:parseProgram(),halted:false};
+ if(clearLog)document.getElementById('log').innerHTML="CPU reset. Program loaded.";
+ render();
+}
+function regIndex(s){return parseInt(s.replace('R',''))}
+function val(s){s=s.trim(); if(/^R[0-3]$/i.test(s))return cpu.regs[regIndex(s)]; return parseInt(s)||0}
+function setReg(s,v){cpu.regs[regIndex(s)]=((v%256)+256)%256}
+function step(){
+ if(cpu.halted){log("CPU is halted.");return}
+ if(cpu.pc>=cpu.program.length){cpu.halted=true;log("End of program reached.");render();return}
+ let line=cpu.program[cpu.pc], p=line.replace(/,/g,' ').trim().split(/\s+/), op=p[0].toUpperCase();
+ cpu.ir=line; log(`FETCH: PC=${cpu.pc} → ${line}`); log(`DECODE: opcode = ${op}`);
+ let oldpc=cpu.pc; cpu.pc++; cpu.cycles++;
+ try{
+  if(op==="LOAD"){setReg(p[1],val(p[2]));log(`EXECUTE: ${p[1]} ← ${val(p[2])}`)}
+  else if(op==="STORE"){cpu.mem[val(p[2])]=val(p[1]);log(`EXECUTE: MEM[${val(p[2])}] ← ${val(p[1])}`)}
+  else if(op==="ADD"){setReg(p[1],val(p[1])+val(p[2]));cpu.acc=val(p[1]);log(`ALU: ${p[1]} + ${p[2]} = ${val(p[1])}`)}
+  else if(op==="SUB"){setReg(p[1],val(p[1])-val(p[2]));cpu.acc=val(p[1]);log(`ALU: ${p[1]} - ${p[2]} = ${val(p[1])}`)}
+  else if(op==="MOV"){setReg(p[1],val(p[2]));log(`EXECUTE: ${p[1]} ← ${val(p[2])}`)}
+  else if(op==="INC"){setReg(p[1],val(p[1])+1);log(`EXECUTE: ${p[1]} incremented`)}
+  else if(op==="DEC"){setReg(p[1],val(p[1])-1);log(`EXECUTE: ${p[1]} decremented`)}
+  else if(op==="JMP"){cpu.pc=val(p[1]);log(`CONTROL: Jumped to address ${cpu.pc}`)}
+  else if(op==="JZ"){if(val(p[1])===0){cpu.pc=val(p[2]);log(`CONTROL: Zero detected, jumped to ${cpu.pc}`)}else log("CONTROL: Zero condition false")}
+  else if(op==="HALT"){cpu.halted=true;log("CONTROL: HALT — processor stopped.")}
+  else {log(`ERROR: Unknown instruction ${op}`)}
+ }catch(e){log("Execution error: "+e.message)}
+ render();
+}
+function runProgram(){if(!cpu.program.length)loadProgram(); while(!cpu.halted && cpu.pc<cpu.program.length)step()}
+function render(){
+ document.getElementById('pc').textContent=cpu.pc;
+ document.getElementById('ir').textContent=cpu.ir;
+ document.getElementById('acc').textContent=cpu.acc;
+ document.getElementById('cycles').textContent=cpu.cycles;
+ document.getElementById('regs').innerHTML=cpu.regs.map((v,i)=>`<tr><td>R${i}</td><td class="value">${v}</td><td class="value">${bin(v)}</td></tr>`).join('');
+ let entries=Object.entries(cpu.mem); if(!entries.length)entries=[['100','—'],['101','—']];
+ document.getElementById('memory').innerHTML=entries.map(([a,v])=>`<tr><td>${a}</td><td class="value">${v}</td><td class="value">${v==='—'?'—':bin(v)}</td></tr>`).join('');
+ document.getElementById('instructions').innerHTML=cpu.program.map((x,i)=>`<tr class="${i===cpu.pc?'active':''}"><td>${i}</td><td class="value">${x}</td><td>${i<cpu.pc?'Executed':i===cpu.pc?'Next':'Waiting'}</td></tr>`).join('');
+}
+loadProgram();
+</script>
+</body>
+</html>
