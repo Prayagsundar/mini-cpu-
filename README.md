@@ -4,7 +4,7 @@
 
 ## 🚀 LIVE DEMO
 
-👉 [**CLICK HERE TO OPEN THE MINI CPU SIMULATOR**](YOUR-LIVE-DEMO-LINK-HERE)
+👉 [**CLICK HERE TO OPEN THE MINI CPU SIMULATOR**](https://jayakarthick-2007.github.io/mini-cpu-/)
 
 ---
 
