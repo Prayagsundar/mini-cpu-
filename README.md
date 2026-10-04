@@ -168,11 +168,8 @@ Then simply open `index.html` in any modern web browser. No server is required.
 
 ## 👨‍💻 Author
 
-**Jayakarthick**
+**Abhilash and Prayag sundar**
 Computer Organisation and Architecture Project
 
 ---
 
-## ⭐ Support
-
-If you like this project, please give it a **star** on GitHub. Feedback and suggestions are always welcome!
